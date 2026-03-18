@@ -9,6 +9,11 @@
 #define SS_PIN 5
 #define RST_PIN 22
 
+extern SPIClass hspi;
+
+extern MFRC522 mfrc522;
+extern MFRC522::MIFARE_Key key; 
+
 // Protótipos das funções (O que o módulo oferece)
 void exibirMenu();
 void init_RFID(); // Função para substituir o setup interno do módulo

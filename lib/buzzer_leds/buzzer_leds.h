@@ -4,10 +4,10 @@
 #include <Arduino.h>
 
 // Definições de pinos para o buzzer e LEDs
-#define BUZZER_PIN 13       // Feedback sonoro
-#define LED_VERDE_PIN 4     // Acesso permitido
-#define LED_VERMELHO_PIN 15 // Acesso negado
-#define LED_AMARELO_PIN 21  // Atenção / Aguardando
+#define BUZZER_PIN 12       // Feedback sonoro
+#define LED_VERDE_PIN 33     // Acesso permitido
+#define LED_VERMELHO_PIN 26 // Acesso negado
+#define LED_AMARELO_PIN 25  // Atenção / Aguardando
 
 // Protótipos das funções para controle do buzzer e LEDs
 

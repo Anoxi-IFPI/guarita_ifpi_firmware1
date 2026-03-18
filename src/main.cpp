@@ -1,70 +1,78 @@
 #include <Arduino.h>
+#include <LittleFS.h>
 
-// 1. Inclusão dos Módulos de Hardware
+// 1. Inclusão dos Módulos
 #include "rfid_ifpi.h"
 #include "buzzer_leds.h"
-
-// 2. Inclusão dos Módulos de Rede
 #include "wifi_ifpi.h"
 #include "mqtt_ifpi.h"
+#include "display_rgb.h"
 
-// Criação dos objetos de Rede
+// Objetos de Rede
 WifiIFPI redeWifi;
 MqttIFPI redeMqtt;
 
 void setup() {
-
-    WiFi.mode(WIFI_STA); // Garante que está em modo estação antes de limpar
-    WiFi.disconnect(true, true);
-    delay(1000);
-    
     Serial.begin(115200);
     delay(1000);
-    Serial.println("\n--- RESET DE FÁBRICA INICIADO ---");
+    
+    // --- 1. HARDWARE BÁSICO ---
+    init_Componentes(); // Buzzer e LEDs
+    
+    // --- 2. INICIALIZAÇÃO DO DISPLAY (LIGA PRIMEIRO) ---
+    tft.init();
+    tft.setRotation(1);
+    tft.fillScreen(TFT_BLACK);
+    desenharNavbar();
+    limparCentro();
+    
+    delay(500); // Dá um tempo para a tela estabilizar a energia
 
-    // LIMPEZA TOTAL (MUITO IMPORTANTE AGORA)
-    WiFi.disconnect(true, true); 
-    delay(2000); // Dá tempo para o chip processar a limpeza
-
-    // Formata o LittleFS do zero para corrigir o erro de permissão
+    // --- 3. REDE E SISTEMA ---
     if(!LittleFS.begin(true)){ 
         Serial.println("Erro crítico ao montar LittleFS");
-    } else {
-        Serial.println("LittleFS Formatado e Montado!");
     }
-
-    init_Componentes(); 
-    init_RFID(); 
-
     redeWifi.iniciar(); 
     redeMqtt.iniciar(redeWifi.getMqttServerIp()); 
+
+    delay(500); // Dá um tempo pro Wi-Fi parar de puxar pico de corrente
+
+    // --- 4. INICIALIZAÇÃO DO RFID (LIGA POR ÚLTIMO) ---
+    init_RFID(); // Agora sim, com a energia e os barramentos calmos, o RFID acorda!
 
     exibirMenu();
 }
 
 void loop() {
-    // 1. Escuta comandos do teclado (Para gravar setor)
+    // A. GERENCIADOR DE TEMPO DO DISPLAY (Substitui os delays bloqueantes)
+    // Se um alerta estiver na tela e passar 5 segundos, ele limpa sozinho
+    if (displayingAlert && (millis() - timerAlerta > 5000)) {
+        limparCentro();
+        // Garante que LEDs de status apaguem quando a tela volta ao normal
+        digitalWrite(LED_VERDE_PIN, LOW);
+        digitalWrite(LED_VERMELHO_PIN, LOW);
+        digitalWrite(LED_AMARELO_PIN, LOW);
+    }
+
+    // B. MANTER CONEXÃO MQTT (Mosquitto)
+    redeMqtt.manterConexao();
+
+    // C. COMANDOS SERIAL (Digite '0' para gravar)
     if (Serial.available() > 0) {
         char c = Serial.read();
         if (c == '0') {
-            gravarSetor(); // (Buzzer e LEDs já funcionam lá dentro)
+            gravarSetor(); // A lógica de contagem e gravação roda aqui
         }
     }
 
-    // 2. Mantém a conexão com o PC (Mosquitto) viva
-    redeMqtt.manterConexao();
-
-    // 3. Leitura automática do Cartão RFID
+    // D. LEITURA AUTOMÁTICA RFID
     if (verificarTagPresente()) {
+        Serial.println("\n\n!!! TAG FÍSICA DETECTADA !!!\n");
         
-        lerNomeDoSetor(2); // Lê os dados salvos no cartão
-        sinalizarSucesso(); // Dá o Bip verde de sucesso
+        // Lê o bloco 2 e já chama a função de sucesso do display internamente
+        lerNomeDoSetor(2); 
         
-        // NOVIDADE: Envia um aviso para o Mosquitto no PC de que um cartão foi lido!
-        // (Depois podemos alterar para enviar o UID ou o Setor exato)
-        redeMqtt.publicarTag("Cartao Detectado na Guarita!"); 
-
-        delay(1500);
-        exibirMenu();
+        // Publica o aviso no servidor Mosquitto
+        redeMqtt.publicarTag("Acesso Registrado na Guarita!"); 
     }
 }
