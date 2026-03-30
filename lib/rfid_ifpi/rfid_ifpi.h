@@ -17,7 +17,7 @@ extern MFRC522::MIFARE_Key key;
 // Protótipos das funções (O que o módulo oferece)
 void exibirMenu();
 void init_RFID(); // Função para substituir o setup interno do módulo
-void lerNomeDoSetor(byte bloco);
+String lerNomeDoSetor(byte bloco);
 void gravarSetor();
 bool verificarTagPresente(); // Função auxiliar para o loop principal
 
